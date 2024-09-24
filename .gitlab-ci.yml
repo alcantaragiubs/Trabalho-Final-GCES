@@ -1,0 +1,60 @@
+services:
+  - docker:dind
+
+stages:
+  - build
+  - test
+  - lint
+  - deploy
+
+variables:
+  POSTGRES_USER: "SEUUSUARIO"
+  POSTGRES_PASSWORD: "SUASENHA"
+  POSTGRES_DB:  "pg"
+  DATABASE_URL: ${DATABASE_URL}
+  JWT_SECRET: ${JWT_SECRET}
+  GITHUB_OAUTH_CLIENT_ID: ${GITHUB_OAUTH_CLIENT_ID}
+  GITHUB_OAUTH_CLIENT_SECRET: ${GITHUB_OAUTH_CLIENT_SECRET}
+  GITHUB_OAUTH_CLIENT_REDIRECT_URI: ${GITHUB_OAUTH_CLIENT_REDIRECT_URI}
+  NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+
+build:
+  stage: build 
+  image: docker:latest
+  variables:
+    DOCKER_HOST: tcp://docker:2375/
+    DOCKER_DRIVER: overlay2
+    DOCKER_TLS_CERTDIR: ""
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    DOCKER_BUILDKIT: 1
+  script:
+    - echo "Building dev application..."
+    - docker compose -f docker-compose.yml build
+
+test:
+  stage: test
+  image: node:18.17.0
+  script:
+    - echo "Running tests..."
+    - npm install -g pnpm
+    - pnpm install --no-frozen-lockfile
+    - pnpm run test
+
+lint:
+  stage: lint
+  image: node:18.17.0
+  script:
+    - echo "Linting code..."
+    - npm install -g pnpm
+    - pnpm install --no-frozen-lockfile
+    - pnpm run lint
+
+deploy:
+  stage: deploy
+  image: docker:latest
+  script:
+    - docker build -t $CI_REGISTRY/unb-esw/gces-2024-1/trabalho-final-gces-giulia-alcantara:api-latest -f prod.api.Dockerfile .
+    - docker build -t $CI_REGISTRY/unb-esw/gces-2024-1/trabalho-final-gces-giulia-alcantara:web-latest -f prod.web.Dockerfile .
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
+    - docker push $CI_REGISTRY/unb-esw/gces-2024-1/trabalho-final-gces-giulia-alcantara:api-latest
+    - docker push $CI_REGISTRY/unb-esw/gces-2024-1/trabalho-final-gces-giulia-alcantara:web-latest
